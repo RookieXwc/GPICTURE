@@ -1,0 +1,112 @@
+CLASS_NAMES: ['car','truck', 'construction_vehicle', 'bus', 'trailer',
+              'barrier', 'motorcycle', 'bicycle', 'pedestrian', 'traffic_cone']
+
+DATA_CONFIG:
+  _BASE_CONFIG_: cfgs/dataset_configs/nuscenes_seg_dataset.yaml
+
+  POINT_CLOUD_RANGE: [-51.2, -51.2, -5.0, -51.2, 51.2, 3.0]
+  CYLINDER_POINT_CLOUD_RANGE: [0, -3.14159265359, -4, 50, 3.14159265359, 2]
+  DATA_AUGMENTOR:
+    DISABLE_AUG_LIST: ['placeholder']
+    AUG_CONFIG_LIST:
+      - NAME: random_world_flip
+        ALONG_AXIS_LIST: ['x', 'y']
+
+      - NAME: random_world_rotation
+        WORLD_ROT_ANGLE: [-0.78539816, 0.78539816]
+
+      - NAME: random_world_scaling
+        WORLD_SCALE_RANGE: [0.9, 1.1]
+
+      - NAME: random_world_translation
+        NOISE_TRANSLATE_STD: [0.5, 0.5, 0.5]
+
+  DATA_PROCESSOR:
+    -   NAME: mask_points_and_boxes_outside_range
+        REMOVE_OUTSIDE_BOXES: True
+        MASK_Z: True
+
+    -   NAME: shuffle_points
+        SHUFFLE_ENABLED: {
+          'train': True,
+          'test': True
+        }
+
+    -   NAME: transform_points_to_voxels_cylinder_placeholder
+        VOXEL_GRID_SHAPE: [480, 360, 32]
+
+MODEL:
+  NAME: Cylinder3D
+
+  VFE:
+    NAME: SegVFE
+    FEAT_CHANNELS: [64, 128, 256, 256]
+    IN_CHANNELS: 6
+    WITH_VOXEL_CENTER: True
+    FEAT_COMPRESSION: 16
+    RETURN_POINT_FEATS: False
+
+  BACKBONE_3D:
+    NAME: DSVT
+    INPUT_LAYER:
+      sparse_shape: [ 480, 360, 32 ]
+      downsample_stride: [ [ 1, 1, 4 ], [ 1, 1, 4 ], [ 1, 1, 2 ] ]
+      d_model: [ 128, 128, 128, 128 ]
+      set_info: [ [ 48, 1 ], [ 48, 1 ], [ 48, 1 ], [ 48, 1 ] ]
+      window_shape: [ [ 12, 12, 32 ], [ 12, 12, 8 ], [ 12, 12, 2 ], [ 12, 12, 1 ] ]
+      hybrid_factor: [ 2, 2, 1 ] # x, y, z
+      shifts_list: [ [ [ 0, 0, 0 ], [ 6, 6, 0 ] ], [ [ 0, 0, 0 ], [ 6, 6, 0 ] ], [ [ 0, 0, 0 ], [ 6, 6, 0 ] ], [ [ 0, 0, 0 ], [ 6, 6, 0 ] ] ]
+      normalize_pos: False
+
+    block_name: [ 'DSVTBlock','DSVTBlock','DSVTBlock','DSVTBlock' ]
+    set_info: [ [ 48, 1 ], [ 48, 1 ], [ 48, 1 ], [ 48, 1 ] ]
+    d_model: [ 128, 128, 128, 128 ]
+    nhead: [ 8, 8, 8, 8 ]
+    dim_feedforward: [ 384, 384, 384, 384 ]
+    dropout: 0.0
+    activation: gelu
+    reduction_type: 'attention'
+    output_shape: [ 468, 360 ]
+    conv_out_channel: 128
+
+  DENSE_HEAD:
+    CLASS_AGNOSTIC: False
+    NAME: Cylinder3DHead
+
+    NUM_CLASSES: 20
+    HIDDEN_CHANNEL: 128
+
+    LOSS_CONFIG:
+      LOSS_WEIGHTS: {
+              'cls_weight': 1.0,
+              'Lovasz_weight': 1.0,
+          }
+      LOSS_LOVASZ:
+        reduction: None
+      LOSS_CLS:
+        use_sigmoid: False
+        gamma: 2.0
+        alpha: 0.25
+
+
+OPTIMIZATION:
+  BATCH_SIZE_PER_GPU: 1
+  NUM_EPOCHS: 24
+
+  OPTIMIZER: adamw
+  LR: 0.005 #
+  WEIGHT_DECAY: 0.05
+  MOMENTUM: 0.9
+
+  MOMS: [0.95, 0.85]
+  PCT_START: 0.4
+  DIV_FACTOR: 10
+  DECAY_STEP_LIST: [35, 45]
+  LR_DECAY: 0.1
+  LR_CLIP: 0.0000001
+
+  LR_WARMUP: False
+  WARMUP_EPOCH: 1
+
+  GRAD_NORM_CLIP: 35
+  LOSS_SCALE_FP16: 4.0

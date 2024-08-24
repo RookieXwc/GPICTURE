@@ -1,0 +1,114 @@
+CLASS_NAMES: []
+
+DATA_CONFIG:
+  _BASE_CONFIG_: cfgs/dataset_configs/nuscenes_dataset.yaml
+
+  POINT_CLOUD_RANGE: [-51.2, -51.2, -5.0, 51.2, 51.2, 3.0]
+
+  DATA_PROCESSOR:
+    -   NAME: mask_points_and_boxes_outside_range
+        REMOVE_OUTSIDE_BOXES: True
+        MASK_Z: True
+
+    -   NAME: shuffle_points
+        SHUFFLE_ENABLED: {
+          'train': True,
+          'test': True
+        }
+
+    -   NAME: transform_points_to_voxels_placeholder
+        VOXEL_SIZE: [0.2, 0.2, 0.2]
+
+  EXTRA_PROCESS:
+    TYPE: voxel
+    CONFIG:
+      VOXEL_SIZE_X: 0.2
+      VOXEL_SIZE_Y: 0.2
+      VOXEL_SIZE_Z: 0.2
+  GENERATE_3D_INPUT: True
+
+MODEL:
+  NAME: GPICTURE
+
+  VFE:
+    NAME: DynPillarVFE3D
+    WITH_DISTANCE: False
+    USE_ABSLOTE_XYZ: True
+    USE_NORM: True
+    NUM_FILTERS: [ 256, 256 ]
+
+  BACKBONE_3D:
+    NAME: DSVTBackboneMAE
+    INPUT_LAYER:
+      sparse_shape: [ 512, 512, 40 ]
+      downsample_stride: [ [ 1, 1, 4 ], [ 1, 1, 4 ], [ 1, 1, 2 ] ]
+      d_model: [ 256, 256, 256, 256 ]
+      set_info: [ [ 48, 1 ], [ 48, 1 ], [ 48, 1 ], [ 48, 1 ] ]
+      window_shape: [ [ 12, 12, 32 ], [ 12, 12, 8 ], [ 12, 12, 2 ], [ 12, 12, 1 ] ]
+      hybrid_factor: [ 2, 2, 1 ] # x, y, z
+      shifts_list: [ [ [ 0, 0, 0 ], [ 6, 6, 0 ] ], [ [ 0, 0, 0 ], [ 6, 6, 0 ] ], [ [ 0, 0, 0 ], [ 6, 6, 0 ] ], [ [ 0, 0, 0 ], [ 6, 6, 0 ] ] ]
+      normalize_pos: False
+    MASK_CONFIG:
+      n_clusters: 8
+      n_partition: [ 3, 3, 2 ]
+      lambda_threshold: 0.6
+      base_mask_ratio: [ 0.9, 0.45, 0 ]
+    GENERATE_MODE: offline # online or offline
+    NUM_SEAL_FEATURES: 64
+
+
+    block_name: [ 'DSVTBlock','DSVTBlock','DSVTBlock','DSVTBlock' ]
+    set_info: [ [ 48, 1 ], [ 48, 1 ], [ 48, 1 ], [ 48, 1 ] ]
+    d_model: [ 256, 256, 256, 256 ]
+    nhead: [ 8, 8, 8, 8 ]
+    dim_feedforward: [ 384, 384, 384, 384 ]
+    dropout: 0.0
+    activation: gelu
+    reduction_type: 'attention'
+    output_shape: [ 512, 512 ]
+    conv_out_channel: 256
+
+  MAP_TO_BEV:
+    NAME: PointPillarScatter3d
+    INPUT_SHAPE: [ 512, 512, 1 ]
+    NUM_BEV_FEATURES: 256
+
+  BACKBONE_2D:
+    NAME: PlainDecoder
+    LAYER_NUMS: [ 1, 2, 2 ]
+    LAYER_STRIDES: [ 1, 2, 2 ]
+    NUM_FILTERS: [ 128, 128, 256 ]
+    UPSAMPLE_STRIDES: [ 1, 2, 4 ]
+    NUM_UPSAMPLE_FILTERS: [ 128, 128, 128 ]
+
+  DENSE_HEAD:
+    NAME: PretrainHead
+    CLASS_AGNOSTIC: False
+    MASK_CONFIG:
+      NUM_PRD_POINTS: 16
+      NUM_GT_POINTS: 64
+
+  POST_PROCESSING: None
+
+
+OPTIMIZATION:
+  BATCH_SIZE_PER_GPU: 1
+  NUM_EPOCHS: 1
+
+  OPTIMIZER: adamw
+  LR: 0.005 #
+  WEIGHT_DECAY: 0.05
+  MOMENTUM: 0.9
+
+  MOMS: [0.95, 0.85]
+  PCT_START: 0.4
+  DIV_FACTOR: 10
+  DECAY_STEP_LIST: [35, 45]
+  LR_DECAY: 0.1
+  LR_CLIP: 0.0000001
+
+  LR_WARMUP: False
+  WARMUP_EPOCH: 1
+
+  GRAD_NORM_CLIP: 35
+  LOSS_SCALE_FP16: 4.0

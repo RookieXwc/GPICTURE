@@ -1,0 +1,129 @@
+CLASS_NAMES: []
+
+DATA_CONFIG:
+  _BASE_CONFIG_: cfgs/dataset_configs/waymo_dataset.yaml
+  SAMPLED_INTERVAL: {'train': 5, 'test': 1}
+  POINT_CLOUD_RANGE: [-74.88, -74.88, -2, 74.88, 74.88, 4.0]
+  DATA_PROCESSOR:
+    -   NAME: mask_points_and_boxes_outside_range
+        REMOVE_OUTSIDE_BOXES: True
+
+    -   NAME: shuffle_points
+        SHUFFLE_ENABLED: {
+          'train': True,
+          'test': False
+        }
+
+    -   NAME: transform_points_to_voxels_placeholder
+        VOXEL_SIZE: [ 0.32, 0.32, 0.1875]
+
+  EXTRA_PROCESS:
+    TYPE: voxel
+    CONFIG:
+      VOXEL_SIZE_X: 0.32
+      VOXEL_SIZE_Y: 0.32
+      VOXEL_SIZE_Z: 0.1875
+
+MODEL:
+  NAME: GPICTURE
+
+  VFE:
+    NAME: DynPillarVFE3D
+    WITH_DISTANCE: False
+    USE_ABSLOTE_XYZ: True
+    USE_NORM: True
+    NUM_FILTERS: [ 192, 192 ]
+
+  BACKBONE_3D:
+    NAME: DSVTBackboneMAE
+    INPUT_LAYER:
+      sparse_shape: [ 468, 468, 32 ]
+      downsample_stride: [ [ 1, 1, 4 ], [ 1, 1, 4 ], [ 1, 1, 2 ] ]
+      d_model: [ 192, 192, 192, 192 ]
+      set_info: [ [ 48, 1 ], [ 48, 1 ], [ 48, 1 ], [ 48, 1 ] ]
+      window_shape: [ [ 12, 12, 32 ], [ 12, 12, 8 ], [ 12, 12, 2 ], [ 12, 12, 1 ] ]
+      hybrid_factor: [ 2, 2, 1 ] # x, y, z
+      shifts_list: [ [ [ 0, 0, 0 ], [ 6, 6, 0 ] ], [ [ 0, 0, 0 ], [ 6, 6, 0 ] ], [ [ 0, 0, 0 ], [ 6, 6, 0 ] ], [ [ 0, 0, 0 ], [ 6, 6, 0 ] ] ]
+      normalize_pos: False
+    MASK_CONFIG:
+      n_clusters: 8
+      n_partition: [3, 3, 2]
+      lambda_threshold: 0.6
+      base_mask_ratio: [0.9, 0.45, 0]
+    GENERATE_MODE: offline # online or offline
+    NUM_SEAL_FEATURES: 64
+
+
+    block_name: [ 'DSVTBlock','DSVTBlock','DSVTBlock','DSVTBlock' ]
+    set_info: [ [ 48, 1 ], [ 48, 1 ], [ 48, 1 ], [ 48, 1 ] ]
+    d_model: [ 192, 192, 192, 192 ]
+    nhead: [ 8, 8, 8, 8 ]
+    dim_feedforward: [ 384, 384, 384, 384 ]
+    dropout: 0.0
+    activation: gelu
+    reduction_type: 'attention'
+    output_shape: [ 468, 468 ]
+    conv_out_channel: 192
+
+  BACKBONE_2D:
+    NAME: LightDecoder
+    INPUT_LAYER:
+      sparse_shape: [ 468, 468, 32 ]
+      downsample_stride: [ [ 1, 1, 4 ], [ 1, 1, 4 ], [ 1, 1, 2 ] ]
+      d_model: [ 192, 192 ]
+      set_info: [ [ 48, 1 ], [ 48, 1 ]]
+      window_shape: [ [ 12, 12, 32 ], [ 12, 12, 1 ] ]
+      hybrid_factor: [ 2, 2, 1 ] # x, y, z
+      shifts_list: [ [ [ 0, 0, 0 ], [ 6, 6, 0 ] ], [ [ 0, 0, 0 ], [ 6, 6, 0 ] ] ]
+      normalize_pos: False
+
+    INPUT_SHAPE: [ 468, 468, 32 ]
+    NUM_BEV_FEATURES: 192
+    block_name: [ 'DSVTBlock','DSVTBlock']
+    set_info: [ [ 48, 1 ], [ 48, 1 ] ]
+    d_model: [ 192, 192 ]
+    nhead: [ 8, 8 ]
+    dim_feedforward: [ 384, 384 ]
+    dropout: 0.0
+    activation: gelu
+    reduction_type: 'attention'
+    output_shape: [ 468, 468 ]
+    conv_out_channel: 192
+    ues_checkpoint: True
+
+  DENSE_HEAD:
+    NAME: PretrainHead3D
+    CLASS_AGNOSTIC: False
+    MASK_CONFIG:
+      NUM_PRD_POINTS: 16
+      NUM_GT_POINTS: 64
+    INPUT_SHAPE: [ 468, 468, 32 ]
+    NUM_SEAL_FEATURES: 64
+    CKA_ALHPA: [0.97, 0.88, 0.78, 0.64, 0.55, 0.44, 0.36, 0.31]
+    GAMMA: 10
+    DELTA: 0.2
+    GENERATE_MODE: offline # online or offline
+
+  POST_PROCESSING: None
+
+
+OPTIMIZATION:
+  BATCH_SIZE_PER_GPU: 2
+  NUM_EPOCHS: 30 # normal 30, but set 15 for one day
+
+  OPTIMIZER: adamw
+  LR: 0.001 #
+  WEIGHT_DECAY: 0.05
+  MOMENTUM: 0.9
+
+  MOMS: [0.95, 0.85]
+  PCT_START: 0.1
+  DIV_FACTOR: 100
+  DECAY_STEP_LIST: [35, 45]
+  LR_DECAY: 0.1
+  LR_CLIP: 0.0000001
+
+  LR_WARMUP: False
+  WARMUP_EPOCH: 1
+
+  GRAD_NORM_CLIP: 10

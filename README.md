@@ -11,8 +11,7 @@
   <p align="center">
     <strong>Weichen Xu, Tianhao Fu, Jian Cao, Xinyu Zhao, Xinxin Xu, Xixin Cao, Xing Zhang</strong></a>&nbsp;&nbsp;&nbsp;
     <br>
-    School of Software and Microelectronics, Peking University, Beijing 100871, China&nbsp;&nbsp;&nbsp;<br>
-    xuweichen1999@stu.pku.edu.cn, caojian@ss.pku.edu.cn 
+    Peking University, Beijing 100871, China&nbsp;&nbsp;&nbsp;<br>
   </p>
   <table align="center">
     <tr>

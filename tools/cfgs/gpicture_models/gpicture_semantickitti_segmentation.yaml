@@ -1,0 +1,230 @@
+CLASS_NAMES: ['car', 'bicycle', 'motorcycle', 'truck', 'other-vehicle', 'person', 'bicyclist', 'motorcyclist',
+              'road', 'parking', 'sidewalk', 'other-ground', 'building', 'fence','vegetation', 'trunk', 'terrain', 'pole', 'traffic-sign']
+
+DATA_CONFIG:
+    _BASE_CONFIG_: cfgs/dataset_configs/semantickitti_dataset.yaml
+    POINT_CLOUD_RANGE: [0, -39.68, -3, 69.12, 39.68, 1]
+    CYLINDER_POINT_CLOUD_RANGE: [0, -3.14159265359, -3, 70, 3.14159265359, 1]
+    FOV_POINTS_ONLY: False
+    ENABLE_SIMILAR_TYPE: True
+    MANIFOLD_POINTS: 80000
+    NON_MANIFOLD_POINTS: 4096
+
+    DATA_AUGMENTOR:
+        DISABLE_AUG_LIST: ['placeholder']
+        AUG_CONFIG_LIST:
+            - NAME: random_world_flip
+              PROBABILITY: 0.5
+              ALONG_AXIS_LIST: ['x', 'y']
+
+            - NAME: random_world_rotation
+              PROBABILITY: 1.0
+              WORLD_ROT_ANGLE: [-0.78539816, 0.78539816]
+
+            - NAME: random_world_scaling
+              PROBABILITY: 1.0
+              WORLD_SCALE_RANGE: [0.95, 1.05]
+            
+            - NAME: random_world_translation
+              NOISE_TRANSLATE_STD: [0.5, 0.5, 0.5]
+
+    DATA_PROCESSOR:
+      - NAME: mask_points_and_boxes_outside_range
+        REMOVE_OUTSIDE_BOXES: True
+
+      - NAME: shuffle_points
+        SHUFFLE_ENABLED: {
+          'train': True,
+          'test': False
+        }
+
+      - NAME: transform_points_to_voxels_cylinder_placeholder
+        VOXEL_GRID_SHAPE: [216, 248, 32]
+
+MODEL:
+    NAME: Cylinder3D
+
+    VFE:
+        NAME: DynVFE
+        TYPE: mean
+        WITH_DISTANCE: False
+        USE_ABSLOTE_XYZ: True
+        USE_CLUSTER_XYZ: True
+        MLPS: [[64, 128]]
+
+    BACKBONE_3D:
+        NAME: SSTBackbone
+
+        SST_BLOCK_LIST:
+          - NAME: sst_block_x1
+            PREPROCESS:
+              WINDOW_SHAPE: [8, 8, 1]
+              DROP_INFO: {
+                'train': {
+                  '0': {'max_tokens': 16, 'drop_range': [0, 16]},
+                  '1': {'max_tokens': 32, 'drop_range': [16, 32]},
+                  '2': {'max_tokens': 64, 'drop_range': [32, 100000]}
+                },
+                'test': {
+                  '0': {'max_tokens': 16, 'drop_range': [0, 16]},
+                  '1': {'max_tokens': 32, 'drop_range': [16, 32]},
+                  '2': {'max_tokens': 64, 'drop_range': [32, 100000]}
+                }
+              }
+              SHUFFLE_VOXELS: False
+              POS_TEMPERATURE: 1000
+              NORMALIZE_POS: False
+
+            ENCODER:
+              NUM_BLOCKS: 4
+              STRIDE: 1
+              D_MODEL: 128
+              NHEAD: 8
+              DIM_FEEDFORWARD: 256
+              DROPOUT: 0.0
+              ACTIVATION: "gelu"
+              LAYER_CFG: {
+                'cosine': True,
+                'tau_min': 0.01
+              }
+
+          - NAME: sst_block_x2
+            PREPROCESS:
+              WINDOW_SHAPE: [8, 8, 1]
+              DROP_INFO: {
+                'train': {
+                  '0': {'max_tokens': 16, 'drop_range': [0, 16]},
+                  '1': {'max_tokens': 32, 'drop_range': [16, 32]},
+                  '2': {'max_tokens': 64, 'drop_range': [32, 100000]}
+                },
+                'test': {
+                  '0': {'max_tokens': 16, 'drop_range': [0, 16]},
+                  '1': {'max_tokens': 32, 'drop_range': [16, 32]},
+                  '2': {'max_tokens': 64, 'drop_range': [32, 100000]}
+                }
+              }
+              SHUFFLE_VOXELS: False
+              POS_TEMPERATURE: 1000
+              NORMALIZE_POS: False
+
+            ENCODER:
+              NUM_BLOCKS: 2
+              STRIDE: 2
+              D_MODEL: 256
+              NHEAD: 8
+              DIM_FEEDFORWARD: 512
+              DROPOUT: 0.0
+              ACTIVATION: "gelu"
+              LAYER_CFG: {
+                'cosine': True,
+                'tau_min': 0.01
+              }
+
+          - NAME: sst_block_x4
+            PREPROCESS:
+              WINDOW_SHAPE: [8, 8, 1]
+              DROP_INFO: {
+                'train': {
+                  '0': {'max_tokens': 16, 'drop_range': [0, 16]},
+                  '1': {'max_tokens': 32, 'drop_range': [16, 32]},
+                  '2': {'max_tokens': 64, 'drop_range': [32, 100000]}
+                },
+                'test': {
+                  '0': {'max_tokens': 16, 'drop_range': [0, 16]},
+                  '1': {'max_tokens': 32, 'drop_range': [16, 32]},
+                  '2': {'max_tokens': 64, 'drop_range': [32, 100000]}
+                }
+              }
+              SHUFFLE_VOXELS: False
+              POS_TEMPERATURE: 1000
+              NORMALIZE_POS: False
+
+            ENCODER:
+              NUM_BLOCKS: 2
+              STRIDE: 2
+              D_MODEL: 256
+              NHEAD: 8
+              DIM_FEEDFORWARD: 512
+              DROPOUT: 0.0
+              ACTIVATION: "gelu"
+              LAYER_CFG: {
+                'cosine': True,
+                'tau_min': 0.01
+              }
+
+        FEATURES_SOURCE: ['x_conv1', 'x_conv2', 'x_conv3']
+        FUSE_LAYER:
+          x_conv1:
+            UPSAMPLE_STRIDE: 1
+            NUM_FILTER: 128
+            NUM_UPSAMPLE_FILTER: 128
+          x_conv2:
+            UPSAMPLE_STRIDE: 2
+            NUM_FILTER: 256
+            NUM_UPSAMPLE_FILTER: 128
+          x_conv3:
+            UPSAMPLE_STRIDE: 4
+            NUM_FILTER: 256
+            NUM_UPSAMPLE_FILTER: 128
+
+    BACKBONE_2D:
+        NAME: SSTBEVBackbone
+        NUM_FILTER: 128
+        CONV_KWARGS: [
+          {'out_channels': 128, 'kernel_size': 3, 'dilation': 1, 'padding': 1, 'stride': 1},
+          {'out_channels': 128, 'kernel_size': 3, 'dilation': 1, 'padding': 1, 'stride': 1},
+          {'out_channels': 128, 'kernel_size': 3, 'dilation': 2, 'padding': 2, 'stride': 1},
+          {'out_channels': 128, 'kernel_size': 3, 'dilation': 1, 'padding': 1, 'stride': 1},
+        ]
+        CONV_SHORTCUT: [0, 1, 2]
+
+    DENSE_HEAD:
+        NAME: Cylinder3DHead
+        CLASS_AGNOSTIC: False
+
+        USE_DIRECTION_CLASSIFIER: True
+        DIR_OFFSET: 0.78539
+        DIR_LIMIT_OFFSET: 0.0
+        NUM_DIR_BINS: 2
+
+        NUM_CLASSES: 20
+        HIDDEN_CHANNEL: 128
+
+
+        LOSS_CONFIG:
+            LOSS_WEIGHTS: {
+                'cls_weight': 1.0,
+                'Lovasz_weight': 1.0,
+            }
+            LOSS_LOVASZ:
+                reduction: None
+            LOSS_CLS:
+                use_sigmoid: False
+                gamma: 2.0
+                alpha: 0.25
+
+    POST_PROCESSING:
+        OUTPUT_RAW_SCORE: False
+        EVAL_METRIC: semantickitti
+
+
+OPTIMIZATION:
+    BATCH_SIZE_PER_GPU: 1
+    NUM_EPOCHS: 30
+
+    OPTIMIZER: adamw
+    LR: 0.001
+    WEIGHT_DECAY: 0.01
+    MOMENTUM: 0.9
+
+    MOMS: [0.9, 0.8]
+    PCT_START: 0.35
+    DIV_FACTOR: 10
+    DECAY_STEP_LIST: [30, 40]
+    LR_DECAY: 0.1
+    LR_CLIP: 0.00000001
+
+    LR_WARMUP: False
+    WARMUP_EPOCH: 1
+
+    GRAD_NORM_CLIP: 10

@@ -72,6 +72,14 @@ nuScenes
 | ------------------------------------------------------------ | :----------------------------------------------------------: | :----------------------------------------------------------: |
 | [GPICTURE (DSVT)](tools/cfgs/gpicture_models/gpicture_nuscenes_ssl_seal_decoder_mask.yaml) | [ckpt](https://www.dropbox.com/scl/fi/g1isvgnwexlymqwaqdo22/pretrain_dsvt_nuscenes.pth?rlkey=ubmvmtwoff3l1jp76ls0udy1j&st=5v3swgd7&dl=0) | [Log](https://www.dropbox.com/scl/fi/1hoyr8hhomb4m6bvcclaa/log_train_20240705-105152-pretrain_nuscenes.txt?rlkey=uq142mzjjgtybq5giqrpzwqaz&st=cmc2lsdu&dl=0) |
 
+SemanticKITTI
+
+| Model                                                        |                       Pre-train model                        |                             Log                              |
+| ------------------------------------------------------------ | :----------------------------------------------------------: | :----------------------------------------------------------: |
+| [GPICTURE (DSVT)](tools/cfgs/gpicture_models/gpicture_semantickitti_ssl_seal_decoder_mask.yaml) | [ckpt](https://www.dropbox.com/scl/fi/5ebx8m08jdmiwa2uew2d3/pretrain_sst_semantickitti.ckpt?rlkey=lsr1swtc12a79ikpx6e5r883l&st=o5c1n8xj&dl=0) | [Log](https://www.dropbox.com/scl/fi/6fbx3j6fs6lkx5nna0g5e/log_train_20241003-143553-pretrain_semantickitti.txt?rlkey=izxmn2bo9tvr2a68l6kf7732x&st=uikihqtz&dl=0) |
+
+
+
 
 
 **Fine-tuning**
@@ -94,6 +102,12 @@ nuScenes
 | Model                                                        | mIoU | Bicycle | Bus  | Car  | Motorcycle | Pedestrian | Trailer | Truck |                             ckpt                             |                             Log                              |
 | ------------------------------------------------------------ | :--: | :-----: | :--: | :--: | :--------: | :--------: | :-----: | :---: | :----------------------------------------------------------: | :----------------------------------------------------------: |
 | [Cylinder3D-SST (GPICTURE)](tools/cfgs/gpicture_models/gpicture_nuscenes_segmentation.yaml) | 79.7 |  43.6   | 94.8 | 96.5 |    81.0    |    84.4    |  65.8   | 87.7  | [ckpt](https://www.dropbox.com/scl/fi/c91fddakds0w4pl6drut3/finetune_dsvt_nuscenes_segmentation.pth?rlkey=vf5hkizjb5c2zoxbvijvip581&st=mi09bzth&dl=0) | [Log](https://www.dropbox.com/scl/fi/17ehaccwnhgtzip2hhhcf/log_train_20240716-092123-finetune_nuscenes_segmentation.txt?rlkey=3mwonhmjinzwv5tpy1krxlnc8&st=qdcqsdnr&dl=0) |
+
+3D Semantic Segmentation (on SemanticKITTI validation)
+
+| Model                                                        | mIoU | Car  | Bicycle | Motorcycle | Truck | Other-vehicle | Person |                             ckpt                             |                             Log                              |
+| ------------------------------------------------------------ | :--: | :--: | :-----: | :--------: | :---: | :-----------: | :----: | :----------------------------------------------------------: | :----------------------------------------------------------: |
+| [Cylinder3D-SST (GPICTURE)](tools/cfgs/gpicture_models/gpicture_semantickitti_segmentation.yaml) | 64.7 | 96.4 |  50.3   |    69.8    | 84.8  |     50.9      |  72.4  | [ckpt](https://www.dropbox.com/scl/fi/2cspncb74x2jm7q5m87r0/finetune_sst_semantickitti_segmentation.pth?rlkey=7azo2mg31lzi9xy4ds6e8pt8e&st=ztuiyrqe&dl=0) | [Log](https://www.dropbox.com/scl/fi/o22y6advsjm6bymoh57o8/log_train_20241007-112707-finetune_semantickitti_segmentation.txt?rlkey=uc4jou9sbg3gxryuum2ceam7d&st=7odzbssj&dl=0) |
 
 Occupancy Prediction (on nuScenes OpenOccupancy validation)
 
@@ -119,7 +133,7 @@ After downloading, please put it into project path
 
 ### ⚒️2. Prepare  Dataset
 
-**Waymo**：
+**Waymo**:
 
 1.Download the Waymo dataset from the [official Waymo website](https://waymo.com/open/download/), and make sure to download version 1.2.0 of Perception Dataset.
 
@@ -157,7 +171,7 @@ python -m pcdet.datasets.waymo.waymo_dataset --func create_waymo_infos --cfg_fil
 
 
 
-**nuScenes**：
+**nuScenes**:
 
 1.Prepare the `trainval` dataset from [nuScenes](https://www.nuscenes.org/nuscenes#download) and prepare the directory as follows:
 
@@ -189,7 +203,7 @@ python -m pcdet.datasets.nuscenes.nuscenes_dataset --func create_nuscenes_infos 
 
 
 
-**nuScenes Lidarseg**：
+**nuScenes Lidarseg**:
 
 1.Download the annotation files from [nuScenes](https://www.nuscenes.org/nuscenes#download) and prepare the directory as follows:
 
@@ -212,7 +226,7 @@ GPICTURE
 
 
 
-**nuScenes OpenOccupancy**：
+**nuScenes OpenOccupancy**:
 
 1.Download the annotation files from [OpenOccupancy](https://github.com/JeffWang987/OpenOccupancy/blob/main/docs/prepare_data.md) and prepare the directory as follows:
 
@@ -251,6 +265,52 @@ git clone https://github.com/JeffWang987/OpenOccupancy.git
 cd OpenOccupancy
 export PYTHONPATH=“.”
 python setup.py develop
+```
+
+
+
+**SemanticKITTI:**
+
+1.Prepare the `SemanticKITTI` dataset from [SemanticKITTI](http://semantic-kitti.org/dataset.html#download) and prepare the directory as follows:
+
+```shell
+GPICTURE
+├── data
+│   ├── semantickitti
+│   │   │── sequences
+│   │   │   ├── 00
+│   │   │   │   ├── labels
+│   │   │   │   ├── velodyne
+│   │   │   ├── 01
+│   │   │   ├── ..
+│   │   │   ├── 22
+├── pcdet
+├── tools
+```
+
+2.Generate the complete dataset.
+
+```shell
+python -m pcdet.datasets.kitti.semantickitti_dataset --func create_semantickitti_infos --cfg_file tools/cfgs/dataset_configs/semantickitti_dataset.yaml
+```
+
+The folder structure after processing should be as below
+
+```shell
+GPICTURE
+├── data
+│   ├── semantickitti
+│   │   ├── sequences
+│   │   │   ├── 00
+│   │   │   │   ├── labels
+│   │   │   │   ├── velodyne
+│   │   │   ├── 01
+│   │   │   ├── ..
+│   │   │   ├── 22
+│   │   ├── semantickitti_infos_train.pkl
+│   │   ├── semantickitti_infos_val.pkl
+├── pcdet
+├── tools
 ```
 
 👆 [BACK to Table of Contents -->](#booksoutline)
@@ -367,6 +427,13 @@ cd tools/
 python train.py --cfg_file cfgs/gpicture_models/gpicture_nuscenes_ssl_seal_decoder_mask.yaml
 ```
 
+SemanticKITTI
+
+```shell
+cd tools/
+python train.py --cfg_file cfgs/gpicture_models/gpicture_semantickitti_ssl_seal_decoder_mask.yaml
+```
+
 
 
 **Fine-tuning**
@@ -392,6 +459,11 @@ python train.py --cfg_file cfgs/gpicture_models/gpicture_nuscenes_detection.yaml
 ```shell
 cd tools/
 python train.py --cfg_file cfgs/gpicture_models/gpicture_nuscenes_segmentation.yaml --pretrained_model /path/of/pretrain/model.pth
+```
+
+```shell
+cd tools/
+python train.py --cfg_file cfgs/gpicture_models/gpicture_semantickitti_segmentation.yaml --pretrained_model /path/of/pretrain/model.pth
 ```
 
 
